@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { DeviceRole } from '../types/sync';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { Logo } from './Logo';
 
 interface RoleSelectorProps {
   onSelectRole: (role: DeviceRole) => void;
@@ -43,19 +44,24 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-2.5 sm:py-4 h-[calc(100vh-4.5rem)] flex flex-col justify-between gap-2.5 select-none overflow-hidden">
-      {/* Compact Header */}
-      <div className="text-center space-y-1 shrink-0">
-        <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs font-semibold">
+      {/* Compact Header with Logo */}
+      <div className="text-center space-y-1.5 shrink-0 flex flex-col items-center">
+        <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-800 text-xs font-semibold">
           <Zap className="w-3.5 h-3.5 text-cyan-600 animate-pulse" />
-          <span>Sincronização em Tempo Real • Wi-Fi, LAN e Cabo USB</span>
+          <span>Sincronização em Tempo Real • Celular ⇄ Celular / PC</span>
           <span className="text-slate-300 hidden sm:inline">•</span>
           <span className="text-emerald-700 font-bold hidden sm:inline">Lag Ultrabaixo</span>
         </div>
-        <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
-          SincroPulso: <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-600 to-indigo-600">Controle Universal</span>
-        </h1>
+        
+        <div className="flex items-center justify-center">
+          <Logo size="lg" animated={true} showText={false} />
+          <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 ml-2">
+            Sincro<span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600">Pulso</span>
+          </h1>
+        </div>
+
         <p className="text-xs text-slate-600 max-w-2xl mx-auto line-clamp-1 sm:line-clamp-2">
-          Transforme seu celular em <strong>Mouse (Giroscópio ou Touchpad)</strong>, <strong>Teclado</strong>, <strong>Caixa de Som</strong> ou <strong>Monitor Extra</strong> para seu PC.
+          Transforme seu celular em <strong>Teclado Real</strong>, <strong>Mouse (Giroscópio ou Touchpad)</strong>, <strong>Caixa de Som</strong> ou <strong>Monitor Extra</strong> para seu PC ou outro celular.
         </p>
       </div>
 

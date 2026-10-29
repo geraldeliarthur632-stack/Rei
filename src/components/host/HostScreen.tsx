@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Laptop, 
+  Smartphone,
   MousePointer, 
   Keyboard, 
   Volume2, 
@@ -16,6 +17,7 @@ import {
   Wifi, 
   Zap, 
   Maximize2,
+  Minimize2,
   Play,
   Pause,
   Sliders,
@@ -25,11 +27,15 @@ import {
   BatteryCharging,
   BatteryLow,
   BatteryMedium,
-  Gauge
+  Gauge,
+  Trash2,
+  VolumeX,
+  Volume1
 } from 'lucide-react';
 import { RemoteCommand, LatencyStats, AccessoryBatteryInfo } from '../../types/sync';
 import { syncEngine } from '../../services/syncEngine';
 import { audioSynth } from '../../services/audioSynth';
+import { permissionsService } from '../../services/permissionsService';
 
 interface HostScreenProps {
   sessionCode: string;
@@ -50,6 +56,7 @@ export const HostScreen: React.FC<HostScreenProps> = ({
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number }>({ x: 50, y: 50 });
   const [clickRipples, setClickRipples] = useState<{ id: number; x: number; y: number; button: string }[]>([]);
   const [activeWindow, setActiveWindow] = useState<'notepad' | 'paint' | 'terminal' | 'player'>('notepad');
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Mobile accessory battery state
   const [batteryInfo, setBatteryInfo] = useState<AccessoryBatteryInfo>(
@@ -61,26 +68,38 @@ export const HostScreen: React.FC<HostScreenProps> = ({
   );
 
   // App states
-  const [notepadText, setNotepadText] = useState<string>('Bem-vindo ao SincroPulso!\nDigite no celular ou mova o mouse para testar a integração em tempo real.');
+  const [notepadText, setNotepadText] = useState<string>(
+    'Bem-vindo ao SincroPulso (Receptor)!\nQualquer texto digitado no celular conectado aparecerá aqui em tempo real.'
+  );
   const [systemLogs, setSystemLogs] = useState<string[]>([
-    `[${new Date().toLocaleTimeString()}] SincroPulso Host pronto.`,
-    `[${new Date().toLocaleTimeString()}] Canal WebRTC LAN inicializado com latência ultrabaixa.`,
+    `[${new Date().toLocaleTimeString()}] SincroPulso Receptor pronto.`,
+    `[${new Date().toLocaleTimeString()}] Conexão ativa com ${accessoryName || 'Dispositivo Remoto'}.`,
   ]);
   const [mediaPlaying, setMediaPlaying] = useState(false);
   const [mediaVolume, setMediaVolume] = useState(80);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [copiedScript, setCopiedScript] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
   const [showNativeBridgeModal, setShowNativeBridgeModal] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const desktopRef = useRef<HTMLDivElement | null>(null);
+  const paintCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isPaintingRef = useRef<boolean>(false);
+
+  // Keep screen awake (WakeLock) on Host
+  useEffect(() => {
+    permissionsService.requestWakeLock().catch(() => {});
+    return () => {
+      permissionsService.releaseWakeLock();
+    };
+  }, []);
 
   useEffect(() => {
     if (accessoryBattery) {
       setBatteryInfo(accessoryBattery);
     }
   }, [accessoryBattery]);
-
-  const desktopRef = useRef<HTMLDivElement | null>(null);
-  const paintCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const isPaintingRef = useRef<boolean>(false);
 
   // Handle incoming remote commands in real time
   useEffect(() => {
@@ -119,14 +138,14 @@ export const HostScreen: React.FC<HostScreenProps> = ({
         const button = lastCommand.payload.button || 'left';
         triggerRipple(button);
         audioSynth.playPreset('click');
-        addLog(`MOUSE_CLICK [${button}] (${cursorPos.x.toFixed(0)}%, ${cursorPos.y.toFixed(0)}%)`);
+        addLog(`CLIQUE [${button}]`);
         break;
       }
 
       case 'MOUSE_DOUBLE_CLICK': {
         triggerRipple('double');
         audioSynth.playPreset('alert');
-        addLog(`MOUSE_DOUBLE_CLICK (${cursorPos.x.toFixed(0)}%, ${cursorPos.y.toFixed(0)}%)`);
+        addLog(`DUPLO CLIQUE`);
         break;
       }
 
@@ -151,36 +170,41 @@ export const HostScreen: React.FC<HostScreenProps> = ({
 
       case 'MOUSE_SCROLL': {
         const delta = lastCommand.payload.deltaY || 0;
-        addLog(`MOUSE_SCROLL [delta: ${delta}]`);
+        addLog(`SCROLL [${delta > 0 ? 'Baixo' : 'Cima'}]`);
         break;
       }
 
       case 'TEXT_INPUT': {
         const txt = lastCommand.payload.text || '';
-        setNotepadText((prev) => `${prev}\n> ${txt}`);
+        setNotepadText((prev) => prev + txt);
         audioSynth.playPreset('click');
-        addLog(`TEXT_INPUT: "${txt}"`);
+        addLog(`DIGITAÇÃO: "${txt}"`);
         break;
       }
 
       case 'KEY_DOWN': {
         const key = lastCommand.payload.key || '';
         audioSynth.playPreset('click');
+
         if (key === 'Backspace') {
           setNotepadText((prev) => prev.slice(0, -1));
         } else if (key === 'Enter') {
           setNotepadText((prev) => `${prev}\n`);
-        } else if (key.length === 1) {
+        } else if (key === ' ' || key === 'Space') {
+          setNotepadText((prev) => `${prev} `);
+        } else if (key === 'Tab') {
+          setNotepadText((prev) => `${prev}  `);
+        } else if (key.length === 1 && !lastCommand.payload.ctrlKey) {
           setNotepadText((prev) => prev + key);
         }
-        addLog(`KEY_DOWN: [${key}]`);
+        addLog(`TECLA: [${key}]`);
         break;
       }
 
       case 'HOTKEY': {
         const shortcut = lastCommand.payload.key || '';
         audioSynth.playPreset('alert');
-        addLog(`HOTKEY: ${shortcut}`);
+        addLog(`ATALHO: ${shortcut}`);
         if (shortcut === 'Ctrl+C') {
           navigator.clipboard.writeText(notepadText).catch(() => {});
         }
@@ -194,7 +218,7 @@ export const HostScreen: React.FC<HostScreenProps> = ({
         else if (act === 'VOLUME_DOWN') setMediaVolume((v) => Math.max(0, v - 10));
         else if (act === 'MUTE') setMediaVolume(0);
         audioSynth.playPreset('click');
-        addLog(`MEDIA: ${act}`);
+        addLog(`MÍDIA: ${act}`);
         break;
       }
 
@@ -203,7 +227,7 @@ export const HostScreen: React.FC<HostScreenProps> = ({
         const typeAudio = lastCommand.payload.typeAudio;
         if (freq) audioSynth.playTone(freq, 'sine', 200);
         else if (typeAudio) audioSynth.playPreset(typeAudio as any);
-        addLog(`AUDIO: ${freq ? `${freq}Hz` : typeAudio}`);
+        addLog(`ÁUDIO: ${freq ? `${freq}Hz` : typeAudio}`);
         break;
       }
 
@@ -215,7 +239,7 @@ export const HostScreen: React.FC<HostScreenProps> = ({
           isCharging: chg,
           lastUpdated: Date.now(),
         });
-        addLog(`BATERIA CELULAR: ${lvl}% ${chg ? '(Carregando ⚡)' : ''}`);
+        addLog(`BATERIA: ${lvl}% ${chg ? '(⚡ Carregando)' : ''}`);
         break;
       }
     }
@@ -241,11 +265,25 @@ export const HostScreen: React.FC<HostScreenProps> = ({
     }
   };
 
+  const handleToggleFullscreen = async () => {
+    if (containerRef.current) {
+      const isFull = await permissionsService.toggleFullscreen(containerRef.current);
+      setIsFullscreen(isFull);
+    }
+  };
+
   const clearPaint = () => {
     if (paintCanvasRef.current) {
       const ctx = paintCanvasRef.current.getContext('2d');
       if (ctx) ctx.clearRect(0, 0, paintCanvasRef.current.width, paintCanvasRef.current.height);
     }
+  };
+
+  const copyNotepad = () => {
+    navigator.clipboard.writeText(notepadText).then(() => {
+      setCopiedText(true);
+      setTimeout(() => setCopiedText(false), 2000);
+    }).catch(() => {});
   };
 
   const nativeAgentPythonCode = `# SyncPulse Native OS Companion Bridge (Python)
@@ -259,148 +297,113 @@ pyautogui.FAILSAFE = False
 print("=== SyncPulse Native Bridge Ativo ===")
 print("Sessão pareada: ${sessionCode}")
 print("Controle de hardware ativado com sucesso!")
-# pyautogui.moveRel(dx, dy)
-# pyautogui.click(button='left')
-# pyautogui.write(text)
 `;
 
   return (
-    <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 space-y-4 select-none">
-      {/* Top Session Stats Bar */}
-      <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-xs">
+    <div 
+      ref={containerRef}
+      className={`max-w-6xl mx-auto px-2 sm:px-4 py-2 sm:py-3.5 space-y-3 select-none ${
+        isFullscreen ? 'fixed inset-0 z-50 bg-slate-100 p-3 max-w-none' : ''
+      }`}
+    >
+      {/* Top Status & Controls Bar */}
+      <div className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200 flex flex-wrap items-center justify-between gap-2.5 text-xs shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-xs shrink-0">
             <Laptop className="w-5 h-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-sm text-slate-900">Receptor SincroPulso (Host)</span>
-              <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-extrabold text-sm text-slate-900">Receptor SincroPulso</span>
+              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-700 border border-cyan-200">
                 PIN: {sessionCode}
               </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 hidden sm:inline">
+                Celular ⇄ PC / Celular
+              </span>
             </div>
-            <p className="text-slate-500 text-xs">
-              Dispositivo conectado: <strong className="text-emerald-700">{accessoryName || 'Celular Remoto'}</strong>
+            <p className="text-slate-500 text-[11px]">
+              Controlador conectado: <strong className="text-emerald-700">{accessoryName || 'Celular Remoto'}</strong>
             </p>
           </div>
         </div>
 
-        {/* Center/Right widgets: Battery + Ping/Lag + Action buttons */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-          {/* Mobile Accessory Battery Level Widget */}
+        {/* Center / Right widgets */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Battery Status Widget */}
           <div 
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all ${
               batteryInfo.level <= 20 && !batteryInfo.isCharging
                 ? 'bg-rose-50 border-rose-300 text-rose-800'
                 : batteryInfo.isCharging
                   ? 'bg-amber-50 border-amber-300 text-amber-900'
                   : 'bg-slate-50 border-slate-200 text-slate-800'
             }`}
-            title={`Bateria do dispositivo conectado: ${batteryInfo.level}% ${batteryInfo.isCharging ? '(Carregando)' : ''}`}
           >
-            <div className="flex items-center justify-center">
-              {batteryInfo.isCharging ? (
-                <Zap className="w-4 h-4 text-amber-500 animate-bounce" />
-              ) : batteryInfo.level <= 20 ? (
-                <BatteryLow className="w-4 h-4 text-rose-600 animate-pulse" />
-              ) : batteryInfo.level <= 50 ? (
-                <BatteryMedium className="w-4 h-4 text-amber-600" />
-              ) : (
-                <Battery className="w-4 h-4 text-emerald-600" />
-              )}
-            </div>
-
-            <div className="flex flex-col text-left">
-              <div className="flex items-center gap-1 font-bold">
-                <span className="font-mono text-xs">{batteryInfo.level}%</span>
-                {batteryInfo.isCharging && (
-                  <span className="text-[10px] text-amber-700 font-bold">⚡ Carregando</span>
-                )}
-              </div>
-              <span className="text-[10px] text-slate-500 leading-tight">
-                Bateria do Celular
-              </span>
-            </div>
-
-            {/* Visual Battery Bar */}
-            <div className="w-10 h-2 rounded-full bg-slate-200 overflow-hidden p-0.5 border border-slate-300 hidden sm:block">
-              <div 
-                className={`h-full rounded-full transition-all duration-500 ${
-                  batteryInfo.level <= 20 
-                    ? 'bg-rose-500' 
-                    : batteryInfo.level <= 50 
-                      ? 'bg-amber-500' 
-                      : 'bg-emerald-500'
-                }`}
-                style={{ width: `${Math.max(5, Math.min(100, batteryInfo.level))}%` }}
-              />
-            </div>
+            {batteryInfo.isCharging ? (
+              <Zap className="w-3.5 h-3.5 text-amber-500 animate-bounce" />
+            ) : batteryInfo.level <= 20 ? (
+              <BatteryLow className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+            ) : batteryInfo.level <= 50 ? (
+              <BatteryMedium className="w-3.5 h-3.5 text-amber-600" />
+            ) : (
+              <Battery className="w-3.5 h-3.5 text-emerald-600" />
+            )}
+            <span className="font-mono text-xs font-bold">{batteryInfo.level}%</span>
+            {batteryInfo.isCharging && <span className="text-[10px] text-amber-700 font-bold hidden sm:inline">⚡</span>}
           </div>
 
-          {/* Real-time Ping and Lag Monitor */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+          {/* Real-time Ping */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-mono font-bold text-slate-800">
-              Ping: {latencyStats?.rtt ?? 12}ms
+              {latencyStats?.rtt ?? 12}ms
             </span>
-            <span className="text-slate-300">•</span>
-            <span className="font-semibold text-emerald-700">
-              {(latencyStats?.rtt ?? 12) <= 25 
-                ? 'Lag Ultrabaixo' 
-                : (latencyStats?.rtt ?? 12) <= 70 
-                  ? 'Lag Baixo' 
-                  : 'Lag Moderado'}
+            <span className="text-emerald-700 font-semibold hidden md:inline text-[11px]">
+              {(latencyStats?.rtt ?? 12) <= 25 ? 'Ultrabaixo' : 'Baixo'}
             </span>
           </div>
 
           {/* Screen Share button */}
           <button
             onClick={handleShareScreen}
-            className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all ${
+            className={`px-2.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition-all ${
               isScreenSharing
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
             }`}
           >
             <Share2 className="w-3.5 h-3.5 text-cyan-600" />
-            <span className="hidden sm:inline">{isScreenSharing ? 'Transmitindo Tela' : 'Compartilhar Tela (Monitor)'}</span>
-            <span className="sm:hidden">Monitor</span>
+            <span className="hidden sm:inline">{isScreenSharing ? 'Transmitindo' : 'Compartilhar Tela'}</span>
+          </button>
+
+          {/* Fullscreen Toggle */}
+          <button
+            onClick={handleToggleFullscreen}
+            className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
+            title="Tela Cheia"
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
           {/* Native Agent Bridge Modal button */}
           <button
             onClick={() => setShowNativeBridgeModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-2.5 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-semibold text-xs flex items-center gap-1"
           >
             <Code2 className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Controle SO Nativo</span>
-            <span className="md:hidden">Nativo</span>
+            <span className="hidden sm:inline">SO Nativo</span>
           </button>
         </div>
       </div>
 
-      {/* Low Battery Warning Banner if below 20% and not charging */}
-      {batteryInfo.level <= 20 && !batteryInfo.isCharging && (
-        <div className="p-3 rounded-2xl bg-rose-50 border border-rose-300 flex items-center justify-between gap-3 text-xs text-rose-800 animate-pulse">
-          <div className="flex items-center gap-2">
-            <BatteryLow className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>
-              <strong>Bateria do Celular Baixa ({batteryInfo.level}%)!</strong> Recomendamos conectar o celular ao carregador para manter sua sessão ativa com baixa latência contínua.
-            </span>
-          </div>
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-900 shrink-0">
-            Atenção
-          </span>
-        </div>
-      )}
-
-      {/* Main Virtual Desktop Interface */}
+      {/* Main Workspace Interface (Mobile-adapted height) */}
       <div 
         ref={desktopRef}
-        className="relative w-full h-[540px] rounded-2xl bg-slate-100 border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between"
+        className="relative w-full h-[calc(100vh-12rem)] min-h-[460px] rounded-2xl bg-white border-2 border-slate-300 shadow-md overflow-hidden flex flex-col justify-between"
       >
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
+        {/* Subtle dot grid */}
+        <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:18px_18px] pointer-events-none" />
 
         {/* Live Virtual Cursor */}
         <div
@@ -420,7 +423,7 @@ print("Controle de hardware ativado com sucesso!")
                 strokeLinejoin="round"
               />
             </svg>
-            <span className="absolute left-5 top-0.5 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-white text-cyan-800 border border-cyan-300 shadow-xs whitespace-nowrap">
+            <span className="absolute left-5 top-0.5 text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-white text-cyan-800 border border-cyan-300 shadow-xs whitespace-nowrap">
               {accessoryName || 'Celular'}
             </span>
           </div>
@@ -438,51 +441,79 @@ print("Controle de hardware ativado com sucesso!")
           />
         ))}
 
-        {/* Desktop Apps Area */}
-        <div className="relative z-10 p-4 sm:p-5 flex-1 flex flex-col gap-3 overflow-hidden">
+        {/* Desktop Workspace Area */}
+        <div className="relative z-10 p-2 sm:p-3 flex-1 flex flex-col gap-2 overflow-hidden">
           {/* Active Application Window */}
-          <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-md flex flex-col overflow-hidden">
-            {/* Window title bar */}
-            <div className="px-3.5 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+          <div className="flex-1 bg-white border border-slate-200 rounded-xl shadow-xs flex flex-col overflow-hidden">
+            {/* Window title bar & Toolbar */}
+            <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <div className="flex gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
                   <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                   <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
                 </div>
-                <span className="font-semibold text-xs text-slate-700 ml-1.5 flex items-center gap-1.5">
+                <span className="font-bold text-xs text-slate-800 ml-1 flex items-center gap-1.5">
                   {activeWindow === 'notepad' && <FileText className="w-3.5 h-3.5 text-cyan-600" />}
                   {activeWindow === 'paint' && <Paintbrush className="w-3.5 h-3.5 text-emerald-600" />}
                   {activeWindow === 'terminal' && <Terminal className="w-3.5 h-3.5 text-amber-600" />}
                   {activeWindow === 'player' && <Volume2 className="w-3.5 h-3.5 text-purple-600" />}
                   <span>
-                    {activeWindow === 'notepad' && 'Bloco de Notas (Teste de Teclado)'}
-                    {activeWindow === 'paint' && 'Quadro de Desenho (Teste de Mouse/Giroscópio)'}
-                    {activeWindow === 'terminal' && 'Terminal de Conexão (Logs)'}
-                    {activeWindow === 'player' && 'Player de Som Remoto'}
+                    {activeWindow === 'notepad' && 'Bloco de Notas (Digitação do Teclado)'}
+                    {activeWindow === 'paint' && 'Quadro de Desenho (Mouse & Giroscópio)'}
+                    {activeWindow === 'terminal' && 'Terminal de Conexão'}
+                    {activeWindow === 'player' && 'Player de Áudio Remoto'}
                   </span>
                 </span>
               </div>
 
-              {activeWindow === 'paint' && (
-                <button
-                  onClick={clearPaint}
-                  className="text-[10px] font-semibold text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded bg-slate-200"
-                >
-                  Limpar
-                </button>
-              )}
+              {/* Action buttons on window header */}
+              <div className="flex items-center gap-1.5">
+                {activeWindow === 'notepad' && (
+                  <>
+                    <button
+                      onClick={copyNotepad}
+                      className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded bg-slate-200 hover:bg-slate-300 flex items-center gap-1"
+                    >
+                      {copiedText ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedText ? 'Copiado!' : 'Copiar'}</span>
+                    </button>
+                    <button
+                      onClick={() => setNotepadText('')}
+                      className="text-[11px] font-semibold text-rose-600 hover:text-rose-800 px-2 py-0.5 rounded bg-rose-50 hover:bg-rose-100 flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Limpar</span>
+                    </button>
+                  </>
+                )}
+
+                {activeWindow === 'paint' && (
+                  <button
+                    onClick={clearPaint}
+                    className="text-[11px] font-semibold text-slate-600 hover:text-slate-900 px-2.5 py-0.5 rounded bg-slate-200"
+                  >
+                    Limpar Quadro
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Window Content */}
-            <div className="flex-1 p-3 overflow-hidden relative">
+            <div className="flex-1 p-2 sm:p-3 overflow-hidden relative">
               {activeWindow === 'notepad' && (
-                <textarea
-                  value={notepadText}
-                  onChange={(e) => setNotepadText(e.target.value)}
-                  className="w-full h-full bg-transparent font-mono text-xs sm:text-sm text-slate-800 resize-none focus:outline-none leading-relaxed"
-                  placeholder="Os textos digitados no celular aparecerão aqui..."
-                />
+                <div className="w-full h-full flex flex-col">
+                  <textarea
+                    value={notepadText}
+                    onChange={(e) => setNotepadText(e.target.value)}
+                    className="w-full flex-1 bg-transparent font-mono text-xs sm:text-sm text-slate-800 resize-none focus:outline-none leading-relaxed p-1"
+                    placeholder="Os textos e teclas digitados no celular aparecerão aqui automaticamente..."
+                  />
+                  <div className="pt-1 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                    <span>{notepadText.length} caracteres • {notepadText.split('\n').length} linhas</span>
+                    <span className="text-emerald-700 font-semibold">Sincronização Ativa</span>
+                  </div>
+                </div>
               )}
 
               {activeWindow === 'paint' && (
@@ -521,18 +552,18 @@ print("Controle de hardware ativado com sucesso!")
           </div>
         </div>
 
-        {/* Windows Taskbar at bottom */}
-        <div className="relative z-20 h-11 bg-white/95 border-t border-slate-200 px-3 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-1.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
-              <Sparkles className="w-3.5 h-3.5" />
+        {/* Taskbar at bottom */}
+        <div className="relative z-20 h-10 bg-white/95 border-t border-slate-200 px-2 sm:px-3 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto">
+            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0">
+              <Sparkles className="w-3 h-3" />
             </div>
 
-            <div className="h-5 w-px bg-slate-200 mx-1" />
+            <div className="h-4 w-px bg-slate-200 mx-0.5" />
 
             <button
               onClick={() => setActiveWindow('notepad')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
                 activeWindow === 'notepad' ? 'bg-cyan-50 text-cyan-700 border border-cyan-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -542,7 +573,7 @@ print("Controle de hardware ativado com sucesso!")
 
             <button
               onClick={() => setActiveWindow('paint')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
                 activeWindow === 'paint' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -552,7 +583,7 @@ print("Controle de hardware ativado com sucesso!")
 
             <button
               onClick={() => setActiveWindow('terminal')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
                 activeWindow === 'terminal' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -562,7 +593,7 @@ print("Controle de hardware ativado com sucesso!")
 
             <button
               onClick={() => setActiveWindow('player')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
                 activeWindow === 'player' ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -571,7 +602,7 @@ print("Controle de hardware ativado com sucesso!")
             </button>
           </div>
 
-          <div className="flex items-center gap-2.5 text-xs text-slate-500 font-mono">
+          <div className="flex items-center gap-2 text-xs text-slate-500 font-mono shrink-0">
             {latencyStats && (
               <span className="text-emerald-700 font-bold hidden sm:inline">
                 {latencyStats.rtt}ms

@@ -52,13 +52,13 @@ export const AccessorySelector: React.FC<AccessorySelectorProps> = ({ onSelectAc
     },
     {
       type: 'keyboard',
-      title: 'Teclado Remoto',
-      subtitle: 'Digitação direta e teclas especiais',
-      description: 'Teclado virtual completo com suporte a acentos, teclas de função (F1-F12), setas, atalhos como Ctrl+C/V e multimídia.',
+      title: 'Teclado Virtual Real',
+      subtitle: 'Teclado completo QWERTY, gamer e atalhos',
+      description: 'Teclado visual interativo com teclas físicas simuladas, QWERTY, números, F1-F12, gamer WASD, setas e suporte ao teclado nativo do smartphone.',
       icon: <Keyboard className="w-5 h-5 text-purple-600" />,
       color: 'border-slate-200 hover:border-purple-500 bg-white hover:shadow-md',
-      badge: 'Produtividade',
-      tags: ['Ctrl+C/V', 'Multimídia', 'Setas', 'Numpad'],
+      badge: 'Teclado Real',
+      tags: ['QWERTY', 'Gamer WASD', 'F1-F12', 'Atalhos', 'Nativo'],
     },
     {
       type: 'speaker',

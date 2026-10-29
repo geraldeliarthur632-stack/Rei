@@ -218,7 +218,7 @@ export const PairingModal: React.FC<PairingModalProps> = ({
         </button>
 
         <span className="text-xs font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full border border-cyan-200">
-          {role === 'host' ? 'Modo Receptor (PC)' : 'Modo Acessório (Celular)'}
+          {role === 'host' ? 'Modo Receptor (PC ou Celular)' : 'Modo Acessório (Celular)'}
         </span>
       </div>
 

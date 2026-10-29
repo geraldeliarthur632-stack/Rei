@@ -1,21 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#2563eb" />
       <stop offset="100%" stop-color="#4f46e5" />
     </linearGradient>
+    <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#818cf8" />
+    </linearGradient>
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#0284c7" flood-opacity="0.3" />
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#0284c7" flood-opacity="0.35" />
     </filter>
   </defs>
-  <rect width="512" height="512" rx="128" fill="url(#grad)" filter="url(#shadow)" />
-  <circle cx="256" cy="256" r="180" stroke="white" stroke-opacity="0.15" stroke-width="4" stroke-dasharray="8 8" />
+
+  <!-- App Rounded Background Icon -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" filter="url(#shadow)" />
   
-  <!-- Pulse Wave + Devices Symbol -->
-  <path d="M120 256 L180 256 L210 170 L260 342 L300 220 L330 256 L392 256" 
-        stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" />
-  
-  <circle cx="256" cy="256" r="14" fill="#38bdf8" />
-  <circle cx="210" cy="170" r="10" fill="#ffffff" />
-  <circle cx="260" cy="342" r="10" fill="#ffffff" />
+  <!-- Subtle Orbital Ring -->
+  <circle cx="256" cy="256" r="195" stroke="white" stroke-opacity="0.2" stroke-width="6" stroke-dasharray="16 16" />
+
+  <!-- Device 1 Node (Host / Screen) -->
+  <rect x="75" y="175" width="115" height="155" rx="24" stroke="#ffffff" stroke-width="18" fill="rgba(255,255,255,0.18)" />
+  <line x1="110" y1="295" x2="155" y2="295" stroke="#38bdf8" stroke-width="14" stroke-linecap="round" />
+
+  <!-- Device 2 Node (Mobile / Accessory) -->
+  <rect x="325" y="160" width="110" height="185" rx="24" stroke="#ffffff" stroke-width="18" fill="rgba(255,255,255,0.18)" />
+  <circle cx="380" cy="315" r="12" fill="#38bdf8" />
+
+  <!-- Dynamic SincroPulso Pulse Wave -->
+  <path d="M190 256 L220 256 L238 180 L274 332 L294 220 L310 256 L325 256" 
+        stroke="url(#pulseGrad)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Glowing Quantum Core -->
+  <circle cx="256" cy="256" r="22" fill="#ffffff" />
+  <circle cx="256" cy="256" r="42" stroke="#38bdf8" stroke-width="8" stroke-opacity="0.6" />
 </svg>

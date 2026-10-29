@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { ConnectionProtocol, DeviceRole, LatencyStats } from '../types/sync';
+import { Logo } from './Logo';
 
 interface NavbarProps {
   role: DeviceRole | null;
@@ -105,21 +106,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex items-center gap-3">
           <button 
             onClick={onResetRole}
-            className="flex items-center gap-2.5 text-left group focus:outline-none"
+            className="flex items-center text-left group focus:outline-none"
             title="Voltar ao início"
           >
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-600/20 group-hover:scale-105 transition-transform text-white">
-              <Activity className="w-4 h-4 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-base tracking-tight text-slate-900">SincroPulso</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700 border border-cyan-200">
-                  Universal
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 hidden sm:block">Controle Remoto LAN, USB & Acessórios</p>
-            </div>
+            <Logo size="sm" animated={true} showText={true} />
           </button>
         </div>
 
