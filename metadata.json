@@ -1,0 +1,6 @@
+{
+  "name": "SincroPulso: Conexão e Controle Universal",
+  "description": "Conecte PC e Celular em tempo real com baixa latência via LAN, WebRTC e Firebase. Transforme o celular em Mouse, Teclado, Caixa de Som ou Monitor Extra.",
+  "requestFramePermissions": ["camera", "microphone", "usb"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

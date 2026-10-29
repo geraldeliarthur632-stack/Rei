@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Users collection: only owner can read and write their profile
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && request.auth.uid == resource.data.uid;
+      allow create: if isSignedIn() && isValidId(userId) && request.auth.uid == userId &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 256;
+      allow update: if isSignedIn() && isValidId(userId) && request.auth.uid == userId &&
+        request.resource.data.uid == existingData().uid &&
+        request.resource.data.email is string;
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // Devices collection: authenticated user can manage their devices
+    match /devices/{deviceId} {
+      allow get: if isSignedIn() && isValidId(deviceId) && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isValidId(deviceId) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.deviceId is string &&
+        request.resource.data.deviceName is string &&
+        request.resource.data.deviceName.size() <= 100;
+      allow update: if isSignedIn() && isValidId(deviceId) &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isValidId(deviceId) && resource.data.userId == request.auth.uid;
+    }
+
+    // Pairing sessions: host creates and either party can join and coordinate via session ID and PIN
+    match /pairingSessions/{sessionId} {
+      allow get: if isValidId(sessionId);
+      allow list: if false; // Disallow list queries to prevent scanning active PIN codes
+      allow create: if isValidId(sessionId) &&
+        request.resource.data.code is string &&
+        request.resource.data.code.size() <= 16 &&
+        request.resource.data.status in ['waiting', 'connected', 'terminated'];
+      allow update: if isValidId(sessionId) &&
+        request.resource.data.status in ['waiting', 'connected', 'terminated'];
+      allow delete: if isValidId(sessionId);
+
+      // Realtime signaling messages subcollection
+      match /signals/{signalId} {
+        allow get, list: if isValidId(sessionId);
+        allow create: if isValidId(signalId) &&
+          request.resource.data.sessionId == sessionId &&
+          request.resource.data.payload is string &&
+          request.resource.data.payload.size() <= 65536;
+        allow delete: if isValidId(signalId);
+      }
+    }
+
+    function existingData() {
+      return resource.data;
+    }
+  }
+}
